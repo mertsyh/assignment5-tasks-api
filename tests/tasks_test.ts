@@ -713,3 +713,69 @@ Deno.test("creating a task rejects invalid course codes", async () => {
     total: 0,
   });
 });
+
+Deno.test("dueDate is saved and can be updated", async () => {
+  const { app, token } = await authenticatedApp();
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${token}`,
+  };
+
+  const created = await app.request("/api/tasks", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ title: "Plan revision", dueDate: "2030-12-01" }),
+  });
+  assertEquals(created.status, 201);
+
+  const body: unknown = await created.json();
+  assert(body !== null && typeof body === "object");
+  assert("id" in body && typeof body.id === "number");
+  assertObjectMatch(body, { dueDate: "2030-12-01" });
+
+  const path = `/api/tasks/${body.id}`;
+  const saved = await app.request(path, { headers });
+  assertEquals(saved.status, 200);
+  assertObjectMatch(await saved.json(), { dueDate: "2030-12-01" });
+
+  const updated = await app.request(path, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ title: "Plan revision", dueDate: "2030-12-15" }),
+  });
+  assertEquals(updated.status, 200);
+
+  const readAfterUpdate = await app.request(path, { headers });
+  assertEquals(readAfterUpdate.status, 200);
+  assertObjectMatch(await readAfterUpdate.json(), { dueDate: "2030-12-15" });
+});
+
+Deno.test("dueDate defaults to null when omitted", async () => {
+  const { app, token } = await authenticatedApp();
+  const id = await createTask(app, token);
+
+  const response = await app.request(`/api/tasks/${id}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assertEquals(response.status, 200);
+  assertObjectMatch(await response.json(), { dueDate: null });
+});
+
+Deno.test("creating a task rejects invalid due dates", async () => {
+  const { app, token } = await authenticatedApp();
+
+  for (const dueDate of ["2030-02-30", "25/11/2030", "not-a-date", 123]) {
+    const response = await app.request("/api/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ title: "Plan revision", dueDate }),
+    });
+
+    assertEquals(response.status, 400, JSON.stringify(dueDate));
+    assertObjectMatch(await response.json(), { error: "validation failed" });
+  }
+});

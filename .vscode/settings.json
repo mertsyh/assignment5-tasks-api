@@ -1,5 +1,5 @@
 {
   "deno.enable": true,
   "deno.config": "./deno.json",
-  "deno.enablePaths": ["./src", "./tests"]
+  "deno.enablePaths": ["./src", "./tests", "./scripts", "./drizzle.config.ts"]
 }

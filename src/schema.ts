@@ -23,6 +23,7 @@ export const tasks = sqliteTable("tasks", {
   userId: integer("user_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   courseCode: text("course_code"),
+  dueDate: text("due_date"),
   status: text("status", { enum: ["todo", "in-progress", "done"] })
     .notNull().default("todo"),
   priority: text("priority", { enum: ["low", "medium", "high"] })
