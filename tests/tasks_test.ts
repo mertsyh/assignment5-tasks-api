@@ -620,3 +620,96 @@ Deno.test("an unknown route returns the common error shape", async () => {
     issues: [],
   });
 });
+
+Deno.test("courseCode is saved and can be updated", async () => {
+  const { app, token } = await authenticatedApp();
+
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${token}`,
+  };
+
+  const created = await app.request("/api/tasks", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      title: "Finish the assignment",
+      courseCode: "  SEN0415  ",
+    }),
+  });
+
+  assertEquals(created.status, 201);
+
+  const createdBody: unknown = await created.json();
+  assert(createdBody !== null && typeof createdBody === "object");
+  assert("id" in createdBody && typeof createdBody.id === "number");
+  assertObjectMatch(createdBody, { courseCode: "SEN0415" });
+
+  const path = `/api/tasks/${createdBody.id}`;
+  const saved = await app.request(path, { headers });
+
+  assertEquals(saved.status, 200);
+  assertObjectMatch(await saved.json(), { courseCode: "SEN0415" });
+
+  const updated = await app.request(path, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      title: "Finish the assignment",
+      courseCode: "SEN0416",
+    }),
+  });
+
+  assertEquals(updated.status, 200);
+  assertObjectMatch(await updated.json(), { courseCode: "SEN0416" });
+
+  const readAfterUpdate = await app.request(path, { headers });
+
+  assertEquals(readAfterUpdate.status, 200);
+  assertObjectMatch(await readAfterUpdate.json(), { courseCode: "SEN0416" });
+});
+
+Deno.test("courseCode defaults to null when omitted", async () => {
+  const { app, token } = await authenticatedApp();
+  const id = await createTask(app, token);
+
+  const response = await app.request(`/api/tasks/${id}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assertEquals(response.status, 200);
+  assertObjectMatch(await response.json(), { courseCode: null });
+});
+
+Deno.test("creating a task rejects invalid course codes", async () => {
+  const { app, token } = await authenticatedApp();
+
+  for (const courseCode of ["", "   ", "X".repeat(21), 42]) {
+    const response = await app.request("/api/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        title: "Finish the assignment",
+        courseCode,
+      }),
+    });
+
+    assertEquals(response.status, 400, JSON.stringify(courseCode));
+    assertObjectMatch(await response.json(), { error: "validation failed" });
+  }
+
+  const listed = await app.request("/api/tasks", {
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  assertEquals(listed.status, 200);
+  assertEquals(await listed.json(), {
+    items: [],
+    page: 1,
+    limit: 20,
+    total: 0,
+  });
+});

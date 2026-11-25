@@ -13,6 +13,7 @@ const Credentials = z.object({
 });
 const TaskInput = z.object({
   title: z.string().trim().min(1).max(100),
+  courseCode: z.string().trim().min(1).max(20).nullable().default(null),
   status: z.enum(["todo", "in-progress", "done"]).default("todo"),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
 });
